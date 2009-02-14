@@ -1,39 +1,56 @@
-require 'active_record'
-require 'cgi'
-require 'cgi/session'
-begin
-  require 'base64'
-rescue LoadError
-end
+require 'base64'
 
 # +SqlSessionStore+ is a stripped down, optimized for speed version of
 # class +ActiveRecordStore+.
 
-class SqlSessionStore
-
+class SqlSessionStore < ActionController::Session::AbstractStore
+  
   # The class to be used for creating, retrieving and updating sessions.
-  # Defaults to SqlSessionStore::Session, which is derived from +ActiveRecord::Base+.
+  # Defaults to SqlSessionStore::SqlSession, which is derived from +ActiveRecord::Base+.
   #
   # In order to achieve acceptable performance you should implement
   # your own session class, similar to the one provided for Myqsl.
   #
   # Only functions +find_session+, +create_session+,
-  # +update_session+ and +destroy+ are required. See file +mysql_session.rb+.
-
+  # +update_session+ and +destroy+ are required. The best implementations
+  # are +postgresql_session.rb+ and +oracle_session.rb+.
   cattr_accessor :session_class
-  @@session_class = SqlSession
+  self.session_class = SqlSession
 
+  class Session
+    class << self
+
+      # Rack-ism for Rails 2.3.0
+      SESSION_RECORD_KEY = 'rack.session.record'.freeze
+
+      # For Rack compatibility (Rails 2.3.0+)
+      def get_session(env, sid)
+        sid ||= generate_sid
+        session = session_class.find_session(sid)
+        env[SESSION_RECORD_KEY] = session
+        [sid, session.data]
+      end
+
+      # For Rack compatibility (Rails 2.3.0+)
+      def set_session(env, sid, session_data)
+        session = env[SESSION_RECORD_KEY]
+        session.update_session(session_data)
+      end
+    end
+  end
+
+  # Below here is for pre-Rails 2.3.0 and not used in Rack-based servers
+  #
   # Create a new SqlSessionStore instance.
   #
   # +session+ is the session for which this instance is being created.
-  #
   # +option+ is currently ignored as no options are recognized.
 
   def initialize(session, option=nil)
-    if @session = @@session_class.find_session(session.session_id)
-      @data = unmarshalize(@session.data)
+    if @session = session_class.find_session(session.session_id)
+      @data = @session.data
     else
-      @session = @@session_class.create_session(session.session_id, marshalize({}))
+      @session = session_class.create_session(session.session_id)
       @data = {}
     end
   end
@@ -41,7 +58,7 @@ class SqlSessionStore
   # Update the database and disassociate the session object
   def close
     if @session
-      @session.update_session(marshalize(@data))
+      @session.update_session(@data)
       @session = nil
     end
   end
@@ -57,43 +74,33 @@ class SqlSessionStore
   # Restore session data from the session object
   def restore
     if @session
-      @data = unmarshalize(@session.data)
+      @data = @session.data
     end
   end
 
   # Save session data in the session object
   def update
     if @session
-      @session.update_session(marshalize(@data))
+      @session.update_session(@data)
     end
   end
-
-  private
-  if defined?(Base64)
-    def unmarshalize(data)
-      Marshal.load(Base64.decode64(data))
-    end
-
-    def marshalize(data)
-      Base64.encode64(Marshal.dump(data))
-    end
-  else
-    def unmarshalize(data)
-      Marshal.load(data.unpack("m").first)
-    end
-
-    def marshalize(data)
-      [Marshal.dump(data)].pack("m")
-    end
+  
+  def id
+    @session.id
   end
-
 end
 
+class CGI::Session
+  def id
+    @dbman.id
+  end
+end
 __END__
 
 # This software is released under the MIT license
 #
-# Copyright (c) 2005-2008 Stefan Kaes
+# Copyright (c) 2008, 2009 Nate Wiger
+# Copyright (c) 2005, 2006 Stefan Kaes
 
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
