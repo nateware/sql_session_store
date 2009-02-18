@@ -4,7 +4,7 @@ require 'base64'
 # class +ActiveRecordStore+.
 
 class SqlSessionStore < ActionController::Session::AbstractStore
-  
+
   # The class to be used for creating, retrieving and updating sessions.
   # Defaults to SqlSessionStore::SqlSession, which is derived from +ActiveRecord::Base+.
   #
@@ -17,41 +17,66 @@ class SqlSessionStore < ActionController::Session::AbstractStore
   cattr_accessor :session_class
   self.session_class = SqlSession
 
-  class Session
-    class << self
+  # Rack-ism for Rails 2.3.0
+  SESSION_RECORD_KEY = 'rack.session.record'.freeze
 
-      # Rack-ism for Rails 2.3.0
-      SESSION_RECORD_KEY = 'rack.session.record'.freeze
+  # Backwards-compat indicators (booleans for speed)
+  cattr_accessor :use_rack_session, :use_cgi_session
+  self.use_rack_session = false
+  self.use_cgi_session  = false
 
-      # For Rack compatibility (Rails 2.3.0+)
-      def get_session(env, sid)
-        sid ||= generate_sid
-        session = session_class.find_session(sid)
-        env[SESSION_RECORD_KEY] = session
-        [sid, session.data]
-      end
+  # For Rack compatibility (Rails 2.3.0+)
+  def get_session(env, sid)
+    sid ||= generate_sid
+    puts "get_session(#{sid})"
+    session = find_or_create_session(sid)
+    env[SESSION_RECORD_KEY] = session
+    [sid, session.data]
+  end
 
-      # For Rack compatibility (Rails 2.3.0+)
-      def set_session(env, sid, session_data)
-        session = env[SESSION_RECORD_KEY]
-        session.update_session(session_data)
-      end
+  # For Rack compatibility (Rails 2.3.0+)
+  def set_session(env, sid, session_data)
+    puts "set_session(#{sid})"
+    session = env[SESSION_RECORD_KEY]
+    session.update_session(session_data)
+    return true # indicate ok to Rack
+  end
+
+  # Create a new SqlSessionStore instance. This method hooks into
+  # the find/create methods of a given driver class.
+  #
+  # +session_id+ is the session ID for which this instance is being created.
+  def find_or_create_session(session_id)
+    if @session = session_class.find_session(session_id)
+      @data = @session.data
+    else
+      @session = session_class.create_session(session_id)
+      @data = {}
     end
+    @session
   end
 
   # Below here is for pre-Rails 2.3.0 and not used in Rack-based servers
-  #
-  # Create a new SqlSessionStore instance.
-  #
-  # +session+ is the session for which this instance is being created.
-  # +option+ is currently ignored as no options are recognized.
-
-  def initialize(session, option=nil)
-    if @session = session_class.find_session(session.session_id)
-      @data = @session.data
+  # The CGI::Session methods are a bit odd in that half are class and half
+  # are instance-based methods
+  # Note that +option+ is currently ignored as no options are recognized.
+  def initialize(session, options={})
+    # MUST CALL super for Rails 2.3.0
+    super
+    
+    # This is just some optimization since this is called over and over and over
+    if self.use_rack_session
+      return true
+    elsif self.use_cgi_session
+      find_or_create_session(session.session_id)
     else
-      @session = session_class.create_session(session.session_id)
-      @data = {}
+      version ||= Rails.version.split('.')
+      if version[0].to_i == 2 && version[1].to_i < 3
+        find_or_create_session(session.session_id)
+        self.use_cgi_session = true
+      else
+        self.use_rack_session = true
+      end
     end
   end
 
