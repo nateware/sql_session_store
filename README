@@ -1,7 +1,8 @@
 == SqlSessionStore
 
-This version of SqlSessionStore properly supports Rack-based sessions released
-in Rails 2.3.  For the latest version, see:
+This version of SqlSessionStore properly supports both CGI-based sessions (Rails < 2.3)
+and Rack-based sessions released in Rails 2.3.  For the latest version of +SqlSessionStore+,
+see:
 
     http://github.com/nateware/sql_session_store/tree/master
 
