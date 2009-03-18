@@ -96,14 +96,11 @@ class OracleSession < AbstractSession
     if @id
       # if @id is not nil, this is a session already stored in the database
       # update the relevant field using @id as key
-      puts "SQL=>#{self.class.update_session_sql} ID=#{@id}, session_id=#{@session_id}"
-      
       cursor = connection.parse(self.class.update_session_sql)
     else
       # if @id is nil, we need to create a new session in the database
       # and set @id to the primary key of the inserted record
       @id = self.class.next_id
-      puts "SQL=>#{self.class.insert_session_sql} ID=#{@id}, session_id=#{@session_id}"
 
       cursor = connection.parse(self.class.insert_session_sql)
       cursor.bind_param(':session_id', @session_id)

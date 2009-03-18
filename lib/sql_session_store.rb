@@ -3,6 +3,16 @@ require 'base64'
 # +SqlSessionStore+ is a stripped down, optimized for speed version of
 # class +ActiveRecordStore+.
 
+# Hack for older versions of Rails
+unless defined?(ActionController::Session::AbstractStore)
+  module ActionController
+    module Session
+      class AbstractStore
+      end
+    end
+  end
+end
+
 class SqlSessionStore < ActionController::Session::AbstractStore
 
   # The class to be used for creating, retrieving and updating sessions.
@@ -61,11 +71,9 @@ class SqlSessionStore < ActionController::Session::AbstractStore
   # are instance-based methods
   # Note that +option+ is currently ignored as no options are recognized.
   def initialize(session, options={})
-    # MUST CALL super for Rails 2.3.0
-    super
-    
     # This is just some optimization since this is called over and over and over
     if self.use_rack_session
+      super # MUST call super for Rack sessions
       return true
     elsif self.use_cgi_session
       find_or_create_session(session.session_id)
@@ -75,6 +83,7 @@ class SqlSessionStore < ActionController::Session::AbstractStore
         find_or_create_session(session.session_id)
         self.use_cgi_session = true
       else
+        super # MUST call super for Rack sessions
         self.use_rack_session = true
       end
     end
