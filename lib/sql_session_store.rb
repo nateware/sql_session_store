@@ -38,7 +38,7 @@ class SqlSessionStore < ActionController::Session::AbstractStore
   # For Rack compatibility (Rails 2.3.0+)
   def get_session(env, sid)
     sid ||= generate_sid
-    puts "get_session(#{sid})"
+    #puts "get_session(#{sid})"
     session = find_or_create_session(sid)
     env[SESSION_RECORD_KEY] = session
     [sid, session.data]
@@ -46,7 +46,7 @@ class SqlSessionStore < ActionController::Session::AbstractStore
 
   # For Rack compatibility (Rails 2.3.0+)
   def set_session(env, sid, session_data)
-    puts "set_session(#{sid})"
+    #puts "set_session(#{sid})"
     session = env[SESSION_RECORD_KEY]
     session.update_session(session_data)
     return true # indicate ok to Rack
