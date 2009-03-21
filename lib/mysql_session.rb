@@ -22,7 +22,7 @@ class MysqlSession < AbstractSession
       # each is used below, as other methods barf on my 64bit linux machine
       # I suspect this to be a bug in mysql-ruby
       result.each do |row|
-        my_session = new(session_id, row[1])
+        my_session = new(session_id, AbstractSession.unmarshalize(row[1]))
         my_session.id = row[0]
       end
       result.free
@@ -31,11 +31,11 @@ class MysqlSession < AbstractSession
 
     # create a new session with given +session_id+ and +data+
     # and save it immediately to the database
-    def create_session(session_id, data)
+    def create_session(session_id, data={})      
       new_session = new(session_id, data)
       if @@eager_session_creation
         connection = session_connection
-        connection.query("INSERT INTO sessions (`created_at`, `updated_at`, `session_id`, `data`) VALUES (NOW(), NOW(), '#{session_id}', '#{Mysql::quote(data)}')")
+        connection.query("INSERT INTO sessions (`created_at`, `updated_at`, `session_id`, `data`) VALUES (NOW(), NOW(), '#{session_id}', '#{Mysql::quote(self.marshalize(data))}')")
         new_session.id = connection.insert_id
       end
       new_session
@@ -61,11 +61,11 @@ class MysqlSession < AbstractSession
     if @id
       # if @id is not nil, this is a session already stored in the database
       # update the relevant field using @id as key
-      connection.query("UPDATE sessions SET `updated_at`=NOW(), `data`='#{Mysql::quote(data)}' WHERE id=#{@id}")
+      connection.query("UPDATE sessions SET `updated_at`=NOW(), `data`='#{Mysql::quote(AbstractSession.marshalize(data))}' WHERE id=#{@id}")
     else
       # if @id is nil, we need to create a new session in the database
-      # and set @id to the primary key of the inserted record
-      connection.query("INSERT INTO sessions (`created_at`, `updated_at`, `session_id`, `data`) VALUES (NOW(), NOW(), '#{@session_id}', '#{Mysql::quote(data)}')")
+      # and set @id to the primary key of the inserted record     
+      connection.query("INSERT INTO sessions (`created_at`, `updated_at`, `session_id`, `data`) VALUES (NOW(), NOW(), '#{@session_id}', '#{Mysql::quote(AbstractSession.marshalize(data))}')")
       @id = connection.insert_id
     end
   end
