@@ -35,7 +35,7 @@ class MysqlSession < AbstractSession
       new_session = new(session_id, data)
       if @@eager_session_creation
         connection = session_connection
-        connection.query("INSERT INTO sessions (`created_at`, `updated_at`, `session_id`, `data`) VALUES (NOW(), NOW(), '#{session_id}', '#{Mysql::quote(self.marshalize(data))}')")
+        connection.query("INSERT INTO sessions (`created_at`, `updated_at`, `session_id`, `data`) VALUES (NOW(), NOW(), '#{session_id}', '#{Mysql::quote(AbstractSession.marshalize(data))}')")
         new_session.id = connection.insert_id
       end
       new_session
