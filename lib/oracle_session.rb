@@ -85,6 +85,11 @@ class OracleSession < AbstractSession
         ([:data] + native_columns).collect{|col| "#{col} = :#{col}"}.join(', ') +
         " , updated_at = SYSDATE WHERE ID = :id"
     end
+    
+    def delete_session_sql
+      @delete_session_sql ||=
+        "DELETE FROM SESSIONS WHERE SESSION_ID = :session_id"
+    end
   end # class methods
 
   # update session with given +data+.
@@ -118,7 +123,13 @@ class OracleSession < AbstractSession
 
   # destroy the current session
   def destroy
-    self.class.delete_all(["session_id = ?", session_id])
+    # self.class.delete_all(["session_id = ?", session_id])
+    connection = self.class.session_connection
+    cursor = nil
+    cursor = connection.parse(self.class.delete_session_sql)
+    cursor.bind_param(':session_id', session_id)
+    cursor.exec
+    cursor.close
   end
 
 end
@@ -127,9 +138,9 @@ __END__
 
 # This software is released under the MIT license
 #
+# Copyright (c) 2007, 2009 Nate Wiger
 # Copyright (c) 2006 Stefan Kaes
 # Copyright (c) 2006 Tiago Macedo
-# Copyright (c) 2007 Nate Wiger
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the

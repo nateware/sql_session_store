@@ -41,7 +41,8 @@ class SqlSessionStore < ActionController::Session::AbstractStore
     #puts "get_session(#{sid})"
     session = find_or_create_session(sid)
     env[SESSION_RECORD_KEY] = session
-    [sid, session.data]
+    #puts "session[:id] = #{session.id}"
+    [sid, session.data.merge(:id => session.id)]  # add :id as workaround for Rails 2.3.2 missing session.id
   end
 
   # For Rack compatibility (Rails 2.3.0+)
